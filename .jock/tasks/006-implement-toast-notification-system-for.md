@@ -1,7 +1,7 @@
 ---
 id: 006
 title: Implement toast notification system for errors and actions
-status: backlog
+status: in-progress
 priority: 2
 labels: [ux, polish, P1]
 branch: feature/toast-notifications
