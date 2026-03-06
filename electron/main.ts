@@ -1,4 +1,5 @@
-import { app, BrowserWindow, shell, ipcMain, dialog, Menu } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, dialog, Menu, autoUpdater as electronAutoUpdater } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import path from 'node:path';
 import { startSidecar, stopSidecar } from './sidecar';
 import {
@@ -1206,4 +1207,70 @@ app.whenReady().then(async () => {
     },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+
+  // --- Auto-update ---
+  if (app.isPackaged) {
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.on('update-available', (info) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('updater:update-available', {
+          version: info.version,
+          releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : '',
+        });
+      }
+    });
+
+    autoUpdater.on('update-not-available', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('updater:up-to-date');
+      }
+    });
+
+    autoUpdater.on('download-progress', (progress) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('updater:download-progress', {
+          percent: Math.round(progress.percent),
+        });
+      }
+    });
+
+    autoUpdater.on('update-downloaded', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('updater:update-downloaded');
+      }
+    });
+
+    autoUpdater.on('error', (err) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('updater:error', err.message);
+      }
+    });
+
+    ipcMain.handle('updater:check', async () => {
+      try {
+        const result = await autoUpdater.checkForUpdates();
+        return { success: true, version: result?.updateInfo?.version };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    });
+
+    ipcMain.handle('updater:download', async () => {
+      try {
+        await autoUpdater.downloadUpdate();
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    });
+
+    ipcMain.handle('updater:install', () => {
+      autoUpdater.quitAndInstall(false, true);
+    });
+
+    // Check for updates 5 seconds after launch
+    setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 5000);
+  }
 });

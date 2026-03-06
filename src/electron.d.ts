@@ -105,6 +105,11 @@ interface IPCChannelMap {
   // Settings
   'settings:get': { args: []; result: JockSettings };
   'settings:set': { args: [newSettings: JockSettings]; result: JockSettings };
+
+  // Auto-update
+  'updater:check': { args: []; result: { success: boolean; version?: string; error?: string } };
+  'updater:download': { args: []; result: { success: boolean; error?: string } };
+  'updater:install': { args: []; result: void };
 }
 
 // --- Event Channel Types ---
