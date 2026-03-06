@@ -1,7 +1,7 @@
 ---
 id: 001
 title: Decompose App.tsx into feature modules
-status: in-progress
+status: done
 priority: 3
 labels: [refactor, architecture, P0]
 branch: task/001-decompose-app-tsx-into-feature
