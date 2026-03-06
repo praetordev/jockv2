@@ -14,20 +14,10 @@ on:
           - linux
 
 jobs:
-  build:
-    name: Build (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            platform: mac
-            build-flag: --mac --publish never
-          - os: ubuntu-latest
-            platform: linux
-            build-flag: --linux --publish never
-    runs-on: ${{ matrix.os }}
-    if: inputs.platform == 'all' || inputs.platform == matrix.platform
+  build-mac:
+    name: Build (macOS)
+    runs-on: macos-latest
+    if: inputs.platform == 'all' || inputs.platform == 'mac'
     steps:
       - uses: actions/checkout@v4
 
@@ -62,15 +52,62 @@ jobs:
         run: npx vite build
 
       - name: Package Electron app
-        run: npx electron-builder ${{ matrix.build-flag }}
+        run: npx electron-builder --mac --publish never
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: jock-${{ matrix.platform }}-${{ github.sha }}
+          name: jock-mac-${{ github.sha }}
           path: |
             release/*.dmg
             release/*.zip
+          retention-days: 14
+
+  build-linux:
+    name: Build (Linux)
+    runs-on: ubuntu-latest
+    if: inputs.platform == 'all' || inputs.platform == 'linux'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npx vitest run
+
+      - name: Go tests
+        run: cd backend && go test ./...
+
+      - name: Build backend
+        run: |
+          mkdir -p backend/bin
+          cd backend
+          go build -o bin/jockd ./cmd/jockd/
+          go build -o bin/jockq ./cmd/jockq/
+          go build -o bin/jockmcp ./cmd/jockmcp/
+
+      - name: Build frontend
+        run: npx vite build
+
+      - name: Package Electron app
+        run: npx electron-builder --linux --publish never
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: jock-linux-${{ github.sha }}
+          path: |
             release/*.AppImage
             release/*.deb
           retention-days: 14
