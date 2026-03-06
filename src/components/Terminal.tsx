@@ -160,7 +160,7 @@ export default function Terminal({
   return (
     <div
       ref={containerRef}
-      className="h-full w-full"
+      className="h-full w-full overflow-hidden"
       style={{ padding: '8px 0 0 8px' }}
     />
   );

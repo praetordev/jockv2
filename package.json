@@ -50,6 +50,11 @@
         "from": "backend/bin/",
         "to": "bin",
         "filter": ["jockd", "jockq", "jockmcp", "vex"]
+      },
+      {
+        "from": "proto/",
+        "to": "proto",
+        "filter": ["*.proto"]
       }
     ],
     "mac": {

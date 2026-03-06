@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -21,6 +23,17 @@ var (
 	cacheManager = cache.NewManager(30 * time.Second)
 	writeLocks   = repolock.New()
 )
+
+// detectRepoPath finds the git repo root from the current working directory.
+func detectRepoPath() string {
+	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err == nil {
+		return strings.TrimSpace(string(out))
+	}
+	// Fallback to cwd
+	cwd, _ := os.Getwd()
+	return cwd
+}
 
 func main() {
 	s := server.NewMCPServer(
@@ -139,9 +152,24 @@ func optStringSlice(args map[string]any, key string) []string {
 // repoPathProp is the common repo_path property used by all tools.
 func repoPathProp() mcp.ToolOption {
 	return mcp.WithString("repo_path",
-		mcp.Required(),
-		mcp.Description("Absolute path to the git repository"),
+		mcp.Description("Absolute path to the git repository (defaults to current working directory's git root)"),
 	)
+}
+
+// getRepoPath extracts repo_path from args, falling back to auto-detection.
+func getRepoPath(args map[string]any) (string, *mcp.CallToolResult) {
+	v, ok := args["repo_path"]
+	if ok {
+		s, ok := v.(string)
+		if ok && s != "" {
+			return s, nil
+		}
+	}
+	detected := detectRepoPath()
+	if detected == "" {
+		return "", errResult("repo_path not provided and could not detect a git repository in the current directory")
+	}
+	return detected, nil
 }
 
 // --- Read-only tools ---
@@ -275,7 +303,7 @@ func registerReadTools(s *server.MCPServer) {
 
 func handleGitStatus(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -293,7 +321,7 @@ func handleGitStatus(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 
 func handleGitLog(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -348,7 +376,7 @@ func handleGitLog(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 
 func handleGitDiff(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -383,7 +411,7 @@ func handleGitDiff(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolRes
 
 func handleGitBlame(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -408,7 +436,7 @@ func handleGitBlame(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 
 func handleGitBranches(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -421,7 +449,7 @@ func handleGitBranches(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToo
 
 func handleGitTags(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -434,7 +462,7 @@ func handleGitTags(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolRes
 
 func handleGitStashes(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -447,7 +475,7 @@ func handleGitStashes(_ context.Context, req mcp.CallToolRequest) (*mcp.CallTool
 
 func handleGitReflog(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -461,7 +489,7 @@ func handleGitReflog(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 
 func handleGitRemotes(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -474,7 +502,7 @@ func handleGitRemotes(_ context.Context, req mcp.CallToolRequest) (*mcp.CallTool
 
 func handleGitCommitDetails(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -491,7 +519,7 @@ func handleGitCommitDetails(_ context.Context, req mcp.CallToolRequest) (*mcp.Ca
 
 func handleGitShowStash(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -668,7 +696,7 @@ func registerWriteTools(s *server.MCPServer) {
 
 func handleGitStage(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -683,7 +711,7 @@ func handleGitStage(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 
 func handleGitUnstage(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -698,7 +726,7 @@ func handleGitUnstage(_ context.Context, req mcp.CallToolRequest) (*mcp.CallTool
 
 func handleGitCommit(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -718,7 +746,7 @@ func handleGitCommit(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 
 func handleGitPush(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -737,7 +765,7 @@ func handleGitPush(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolRes
 
 func handleGitPull(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -754,7 +782,7 @@ func handleGitPull(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolRes
 
 func handleGitMerge(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -779,7 +807,7 @@ func handleGitMerge(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 
 func handleGitCreateBranch(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -799,7 +827,7 @@ func handleGitCreateBranch(_ context.Context, req mcp.CallToolRequest) (*mcp.Cal
 
 func handleGitDeleteBranch(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -818,7 +846,7 @@ func handleGitDeleteBranch(_ context.Context, req mcp.CallToolRequest) (*mcp.Cal
 
 func handleGitCreateTag(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -838,7 +866,7 @@ func handleGitCreateTag(_ context.Context, req mcp.CallToolRequest) (*mcp.CallTo
 
 func handleGitStashCreate(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -854,7 +882,7 @@ func handleGitStashCreate(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 
 func handleGitStashPop(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -870,7 +898,7 @@ func handleGitStashPop(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToo
 
 func handleGitCherryPick(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -894,7 +922,7 @@ func handleGitCherryPick(_ context.Context, req mcp.CallToolRequest) (*mcp.CallT
 
 func handleGitRevert(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -918,7 +946,7 @@ func handleGitRevert(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 
 func handleGitRebase(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -942,7 +970,7 @@ func handleGitRebase(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 
 func handleGitResolveConflict(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -964,7 +992,7 @@ func handleGitResolveConflict(_ context.Context, req mcp.CallToolRequest) (*mcp.
 
 func handleGitAbortMerge(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -997,7 +1025,7 @@ func registerDSLTools(s *server.MCPServer) {
 
 func handleDSLQuery(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -1128,7 +1156,7 @@ func registerTaskTools(s *server.MCPServer) {
 
 func handleTaskList(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -1142,7 +1170,7 @@ func handleTaskList(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 
 func handleTaskCreate(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -1162,7 +1190,7 @@ func handleTaskCreate(_ context.Context, req mcp.CallToolRequest) (*mcp.CallTool
 
 func handleTaskUpdate(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -1185,7 +1213,7 @@ func handleTaskUpdate(_ context.Context, req mcp.CallToolRequest) (*mcp.CallTool
 
 func handleTaskDelete(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}
@@ -1201,7 +1229,7 @@ func handleTaskDelete(_ context.Context, req mcp.CallToolRequest) (*mcp.CallTool
 
 func handleTaskStart(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	repoPath, e := requireString(args, "repo_path")
+	repoPath, e := getRepoPath(args)
 	if e != nil {
 		return e, nil
 	}

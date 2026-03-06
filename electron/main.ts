@@ -1072,15 +1072,38 @@ app.on('before-quit', () => {
   stopSidecar();
 });
 
-app.whenReady().then(async () => {
-  try {
-    const port = await startSidecar();
-    console.log(`Go sidecar started on port ${port}`);
-    createGrpcClient(port);
-  } catch (err) {
-    console.error('Failed to start Go backend:', err);
+let backendError: string | null = null;
+
+ipcMain.handle('backend:status', () => {
+  return { ok: backendError === null, error: backendError };
+});
+
+async function startBackendWithRetry(retries = 3): Promise<void> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const port = await startSidecar();
+      console.log(`Go sidecar started on port ${port}`);
+      createGrpcClient(port);
+      backendError = null;
+      return;
+    } catch (err: any) {
+      console.error(`Backend startup attempt ${attempt}/${retries} failed:`, err);
+      if (attempt === retries) {
+        backendError = err.message || String(err);
+      }
+    }
   }
+}
+
+app.whenReady().then(async () => {
+  await startBackendWithRetry();
   createWindow();
+
+  if (backendError && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      mainWindow!.webContents.send('backend:error', backendError);
+    });
+  }
 
   // --- Query History Persistence ---
   const historyPath = path.join(app.getPath('userData'), 'query-history.json');
