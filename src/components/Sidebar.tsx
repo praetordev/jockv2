@@ -8,6 +8,7 @@ import {
   AlertTriangle, Archive, Trash2, Play, RotateCcw, Clock, Settings,
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 import FileExplorer from './FileExplorer';
 import { dragPayload } from '../lib/dragState';
 
@@ -44,6 +45,7 @@ export default function Sidebar() {
     setSelectedCommit, setSelectedFile,
   } = ctx;
 
+  const { addToast } = useToast();
   const [isRepoDropdownOpen, setIsRepoDropdownOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ left: 0, top: 0 });
   const repoButtonRef = useRef<HTMLButtonElement>(null);
@@ -133,7 +135,10 @@ export default function Sidebar() {
                   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                     e.preventDefault();
                     sourceControl.commit({ amend: amendMode }).then((hash) => {
-                      if (hash) { setAmendMode(false); refreshCommits(); refreshBranches(); }
+                      if (hash) {
+                        setAmendMode(false); refreshCommits(); refreshBranches();
+                        addToast({ type: 'success', title: amendMode ? 'Commit amended' : 'Changes committed', message: hash.slice(0, 7) });
+                      }
                     });
                   }
                 }}
@@ -382,6 +387,10 @@ export default function Sidebar() {
                 const result = await window.electronAPI.invoke('git:stash-and-switch', b.name);
                 if (result.success) {
                   refreshBranches(); refreshCommits(); refreshFileTree(); sourceControl.refresh();
+                  addToast({ type: 'success', title: `Switched to ${b.name}` });
+                  if (result.warning) addToast({ type: 'warning', title: 'Stash conflict', message: result.warning });
+                } else {
+                  addToast({ type: 'error', title: 'Branch switch failed', message: result.error });
                 }
               }}
               onKeyDown={async (e) => {
@@ -391,6 +400,9 @@ export default function Sidebar() {
                   const result = await window.electronAPI.invoke('git:stash-and-switch', b.name);
                   if (result.success) {
                     refreshBranches(); refreshCommits(); refreshFileTree(); sourceControl.refresh();
+                    addToast({ type: 'success', title: `Switched to ${b.name}` });
+                  } else {
+                    addToast({ type: 'error', title: 'Branch switch failed', message: result.error });
                   }
                 }
               }}
@@ -424,10 +436,12 @@ export default function Sidebar() {
                       const result = await ctx.rebase.rebase(b.name);
                       if (result?.success) {
                         refreshCommits(); refreshBranches();
+                        addToast({ type: 'success', title: `Rebased onto ${b.name}` });
                       } else if (result?.hasConflicts) {
                         mergeConflicts.setConflictFiles(result.conflictFiles);
                         setMainView('changes');
                         if (result.conflictFiles.length > 0) mergeConflicts.fetchConflictDetail(result.conflictFiles[0]);
+                        addToast({ type: 'warning', title: 'Rebase conflicts', message: `${result.conflictFiles.length} file(s) need resolution` });
                       }
                     }}
                     className="text-zinc-500 hover:text-zinc-200"
@@ -439,7 +453,12 @@ export default function Sidebar() {
                     onClick={async (e) => {
                       e.stopPropagation();
                       const result = await doDeleteBranch(b.name);
-                      if (result?.success) { refreshBranches(); }
+                      if (result?.success) {
+                        refreshBranches();
+                        addToast({ type: 'success', title: `Deleted branch ${b.name}` });
+                      } else if (result?.error) {
+                        addToast({ type: 'error', title: 'Delete failed', message: result.error });
+                      }
                     }}
                     className="text-zinc-500 hover:text-rose-400"
                     title={`Delete ${b.name}`}

@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { AppProvider, useAppContext } from './context/AppContext';
+import { ToastProvider, useToast } from './context/ToastContext';
 import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
 import Taskbar from './components/Taskbar';
+import ToastContainer from './components/ToastContainer';
 import CreateBranchModal from './components/modals/CreateBranchModal';
 import MergeDialog from './components/modals/MergeDialog';
 import RemoteSetupModal from './components/modals/RemoteSetupModal';
@@ -27,6 +29,20 @@ function AppShell() {
     doCreateBranch, creatingBranch,
     mergeConflicts, tags, checkRemote,
   } = useAppContext();
+
+  const { addToast } = useToast();
+  const prevPushResult = useRef(pushResult);
+
+  useEffect(() => {
+    if (pushResult && pushResult !== prevPushResult.current) {
+      if (pushResult.success) {
+        addToast({ type: 'success', title: 'Push successful' });
+      } else {
+        addToast({ type: 'error', title: 'Push failed', message: pushResult.error });
+      }
+    }
+    prevPushResult.current = pushResult;
+  }, [pushResult, addToast]);
 
   return (
     <div className="flex flex-col h-screen w-full bg-zinc-950 text-zinc-300 overflow-hidden select-none">
@@ -91,14 +107,18 @@ function AppShell() {
         doCreateTag={tags.createTag}
         defaultCommitHash={createTagCommitHash}
       />
+
+      <ToastContainer />
     </div>
   );
 }
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppShell />
-    </AppProvider>
+    <ToastProvider>
+      <AppProvider>
+        <AppShell />
+      </AppProvider>
+    </ToastProvider>
   );
 }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useMerge } from '../../hooks/useGitData';
+import { useToast } from '../../context/ToastContext';
 import type { MergeResult } from '../../types';
 
 interface MergeDialogProps {
@@ -22,6 +23,7 @@ export default function MergeDialog({
   onAbortMerge,
 }: MergeDialogProps) {
   const { merging, mergeResult, doMerge, clearMergeResult } = useMerge();
+  const { addToast } = useToast();
 
   if (!show || !mergeBranch) return null;
 
@@ -67,6 +69,11 @@ export default function MergeDialog({
                 const result = await doMerge(mergeBranch, false);
                 if (result?.success && !result.hasConflicts) {
                   onSuccess();
+                  addToast({ type: 'success', title: `Merged ${mergeBranch}` });
+                } else if (result?.hasConflicts) {
+                  addToast({ type: 'warning', title: 'Merge conflicts', message: `${result.conflictFiles.length} file(s) need resolution` });
+                } else if (result && !result.success) {
+                  addToast({ type: 'error', title: 'Merge failed', message: result.error });
                 }
               }}
               disabled={merging}
