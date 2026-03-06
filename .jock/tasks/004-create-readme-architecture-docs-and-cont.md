@@ -1,7 +1,7 @@
 ---
 id: 004
 title: Create README, architecture docs, and contributor guide
-status: backlog
+status: done
 priority: 2
 labels: [documentation, P1]
 branch: feature/documentation
