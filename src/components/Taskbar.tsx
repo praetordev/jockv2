@@ -1,7 +1,8 @@
 import React from 'react';
 import {
-  FolderOpen, RefreshCw, GitGraph, FileCode, FileEdit, GitBranch, Upload, ClipboardList,
+  FolderOpen, RefreshCw, GitGraph, FileCode, FileEdit, GitBranch, Upload, ClipboardList, ArrowDownCircle, Download, RotateCw,
 } from 'lucide-react';
+import { useAutoUpdate } from '../hooks/useAutoUpdate';
 
 type MainView = 'graph' | 'editor' | 'changes' | 'settings' | 'interactive-rebase' | 'tasks';
 
@@ -26,6 +27,7 @@ export default function Taskbar({
   onOpenRepo,
   onRefresh,
 }: TaskbarProps) {
+  const update = useAutoUpdate();
   return (
     <div className="h-8 flex-shrink-0 border-t border-zinc-800/60 bg-zinc-900/60 flex items-center px-3 gap-1 text-xs">
       <button
@@ -100,6 +102,33 @@ export default function Taskbar({
         </span>
       )}
       <div className="flex-1" />
+
+      {update.status === 'available' && (
+        <button
+          onClick={update.downloadUpdate}
+          className="flex items-center px-2 py-1 rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 transition-colors"
+          title={`Update v${update.version} available`}
+        >
+          <ArrowDownCircle className="w-3.5 h-3.5 mr-1" />
+          Update v{update.version}
+        </button>
+      )}
+      {update.status === 'downloading' && (
+        <span className="flex items-center px-2 py-1 text-blue-400">
+          <Download className="w-3.5 h-3.5 mr-1 animate-pulse" />
+          {update.progress}%
+        </span>
+      )}
+      {update.status === 'ready' && (
+        <button
+          onClick={update.installUpdate}
+          className="flex items-center px-2 py-1 rounded bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 transition-colors"
+          title="Restart to update"
+        >
+          <RotateCw className="w-3.5 h-3.5 mr-1" />
+          Restart to Update
+        </button>
+      )}
     </div>
   );
 }

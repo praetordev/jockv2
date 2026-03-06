@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { JockSettings } from '../settingsTypes';
 import { KEYMAP_ACTIONS, buildKeymap } from '../lib/defaultKeymap';
 import { isElectron } from '../lib/electron';
+import { useAutoUpdate } from '../hooks/useAutoUpdate';
 
 interface SettingsViewProps {
   settings: JockSettings;
@@ -47,6 +48,7 @@ export default function SettingsView({ settings, onUpdateSetting, onUpdateKeybin
   const [recordingAction, setRecordingAction] = useState<string | null>(null);
   const [gitConfig, setGitConfig] = useState<{ userName: string; userEmail: string; gpgSign: boolean } | null>(null);
   const keymap = buildKeymap(settings.keybindings);
+  const update = useAutoUpdate();
 
   useEffect(() => {
     if (activeCategory === 'git' && isElectron && !gitConfig) {
@@ -145,6 +147,47 @@ export default function SettingsView({ settings, onUpdateSetting, onUpdateKeybin
                 className="bg-zinc-900 border border-zinc-800 rounded-md px-3 py-1.5 text-sm text-zinc-200
                   focus:outline-none focus:border-[#F14E32] focus:ring-1 focus:ring-[#F14E32] w-64"
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs text-zinc-400">Updates</label>
+              <p className="text-[11px] text-zinc-600">
+                Check for new versions from GitHub Releases.
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={update.checkForUpdates}
+                  disabled={update.status === 'checking' || update.status === 'downloading'}
+                  className="px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-sm text-zinc-200 transition-colors disabled:opacity-40"
+                >
+                  {update.status === 'checking' ? 'Checking...' : 'Check for Updates'}
+                </button>
+                {update.status === 'up-to-date' && (
+                  <span className="text-xs text-emerald-400">You&apos;re up to date</span>
+                )}
+                {update.status === 'available' && (
+                  <button
+                    onClick={update.downloadUpdate}
+                    className="px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-sm text-white transition-colors"
+                  >
+                    Download v{update.version}
+                  </button>
+                )}
+                {update.status === 'downloading' && (
+                  <span className="text-xs text-blue-400">Downloading... {update.progress}%</span>
+                )}
+                {update.status === 'ready' && (
+                  <button
+                    onClick={update.installUpdate}
+                    className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-sm text-white transition-colors"
+                  >
+                    Restart to Update
+                  </button>
+                )}
+                {update.status === 'error' && (
+                  <span className="text-xs text-rose-400">{update.error}</span>
+                )}
+              </div>
             </div>
           </div>
         )}
