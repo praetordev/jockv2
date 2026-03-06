@@ -1,0 +1,5 @@
+{
+  "name": "Git Client UI Prototype",
+  "description": "A web-based UI prototype for a Git client, designed for future integration with Electron and Golang.",
+  "requestFramePermissions": []
+}

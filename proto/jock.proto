@@ -1,0 +1,660 @@
+syntax = "proto3";
+
+package jock;
+
+option go_package = "github.com/daearol/jockv2/backend/internal/proto";
+
+// --- Messages ---
+
+message GraphConnection {
+  int32 to_column = 1;
+  int32 to_row = 2;
+  string color = 3;
+}
+
+message CommitGraph {
+  string color = 1;
+  int32 column = 2;
+  repeated GraphConnection connections = 3;
+}
+
+message Commit {
+  string hash = 1;
+  string message = 2;
+  string author = 3;
+  string date = 4;
+  repeated string branches = 5;
+  repeated string tags = 6;
+  repeated string parents = 7;
+  CommitGraph graph = 8;
+}
+
+message FileChange {
+  string path = 1;
+  string status = 2;
+  int32 additions = 3;
+  int32 deletions = 4;
+  string patch = 5;
+}
+
+message Branch {
+  string name = 1;
+  bool is_current = 2;
+  string remote = 3;
+  int32 ahead = 4;
+  int32 behind = 5;
+}
+
+// --- Requests / Responses ---
+
+message ListCommitsRequest {
+  string repo_path = 1;
+  int32 limit = 2;
+  int32 skip = 3;
+  string branch = 4;
+  string author_pattern = 5;
+  string grep_pattern = 6;
+  string after_date = 7;
+  string before_date = 8;
+  string path_pattern = 9;
+}
+
+message ListCommitsResponse {
+  repeated Commit commits = 1;
+}
+
+message ListBranchesRequest {
+  string repo_path = 1;
+}
+
+message ListBranchesResponse {
+  repeated Branch branches = 1;
+}
+
+message GetCommitDetailsRequest {
+  string repo_path = 1;
+  string hash = 2;
+}
+
+message GetCommitDetailsResponse {
+  Commit commit = 1;
+  repeated FileChange file_changes = 2;
+}
+
+message GetFileDiffRequest {
+  string repo_path = 1;
+  string hash = 2;
+  string file_path = 3;
+}
+
+message GetFileDiffResponse {
+  string patch = 1;
+}
+
+message GetStatusRequest {
+  string repo_path = 1;
+}
+
+message GetStatusResponse {
+  repeated FileChange staged = 1;
+  repeated FileChange unstaged = 2;
+  repeated string untracked = 3;
+  repeated FileChange unmerged = 4;
+}
+
+// --- Pull / Remote Messages ---
+
+message PullRequest {
+  string repo_path = 1;
+  string remote = 2;
+  string branch = 3;
+}
+
+message PullResponse {
+  string summary = 1;
+  int32 updated = 2;
+}
+
+message ListRemotesRequest {
+  string repo_path = 1;
+}
+
+message RemoteInfo {
+  string name = 1;
+  string url = 2;
+}
+
+message ListRemotesResponse {
+  repeated RemoteInfo remotes = 1;
+}
+
+message ListRemoteBranchesRequest {
+  string repo_path = 1;
+  string remote = 2;
+}
+
+message ListRemoteBranchesResponse {
+  repeated string branches = 1;
+}
+
+// --- DSL Messages ---
+
+message ExecuteDSLRequest {
+  string repo_path = 1;
+  string query = 2;
+  bool dry_run = 3;
+}
+
+message DSLCommitResult {
+  string hash = 1;
+  string message = 2;
+  string author = 3;
+  string date = 4;
+  repeated string branches = 5;
+  repeated string tags = 6;
+  int32 additions = 7;
+  int32 deletions = 8;
+  repeated string files = 9;
+  string date_iso = 10;
+  CommitGraph graph = 11;
+  repeated string parents = 12;
+}
+
+message DSLAggregateRow {
+  string group = 1;
+  double value = 2;
+}
+
+message DSLActionReport {
+  string action = 1;
+  repeated string affected_hashes = 2;
+  bool success = 3;
+  bool dry_run = 4;
+  string description = 5;
+  repeated string errors = 6;
+}
+
+message ExecuteDSLResponse {
+  string result_kind = 1;
+  repeated DSLCommitResult commits = 2;
+  repeated Branch branches = 3;
+  int32 count = 4;
+  DSLActionReport action_report = 5;
+  string error = 6;
+  repeated DSLAggregateRow aggregates = 7;
+  string agg_func = 8;
+  string agg_field = 9;
+  string group_field = 10;
+  string formatted_output = 11;
+  string format_type = 12;
+}
+
+message DSLAutoCompleteRequest {
+  string repo_path = 1;
+  string partial_query = 2;
+  int32 cursor_position = 3;
+}
+
+message DSLSuggestion {
+  string text = 1;
+  string kind = 2;
+  string description = 3;
+}
+
+message DSLAutoCompleteResponse {
+  repeated DSLSuggestion suggestions = 1;
+}
+
+// --- Stage / Unstage / Commit Messages ---
+
+message StageFilesRequest {
+  string repo_path = 1;
+  repeated string paths = 2;
+}
+
+message StageFilesResponse {
+  bool success = 1;
+}
+
+message UnstageFilesRequest {
+  string repo_path = 1;
+  repeated string paths = 2;
+}
+
+message UnstageFilesResponse {
+  bool success = 1;
+}
+
+message CreateCommitRequest {
+  string repo_path = 1;
+  string message = 2;
+  bool amend = 3;
+}
+
+message CreateCommitResponse {
+  string hash = 1;
+}
+
+message GetWorkingDiffRequest {
+  string repo_path = 1;
+  string file_path = 2;
+  bool staged = 3;
+}
+
+message GetWorkingDiffResponse {
+  string patch = 1;
+}
+
+// --- Push Messages ---
+
+message PushRequest {
+  string repo_path = 1;
+  string remote = 2;
+  string branch = 3;
+  bool force = 4;
+  bool set_upstream = 5;
+}
+
+message PushResponse {
+  string summary = 1;
+  bool success = 2;
+}
+
+// --- Merge Messages ---
+
+message MergeRequest {
+  string repo_path = 1;
+  string branch = 2;
+  bool no_ff = 3;
+}
+
+message MergeResponse {
+  string summary = 1;
+  bool success = 2;
+  bool has_conflicts = 3;
+  repeated string conflict_files = 4;
+}
+
+// --- Conflict Resolution Messages ---
+
+message GetConflictDetailsRequest {
+  string repo_path = 1;
+  string file_path = 2;
+}
+
+message GetConflictDetailsResponse {
+  string path = 1;
+  string ours_content = 2;
+  string theirs_content = 3;
+  string raw_content = 4;
+}
+
+message ResolveConflictRequest {
+  string repo_path = 1;
+  string file_path = 2;
+  string strategy = 3;
+}
+
+message ResolveConflictResponse {
+  bool success = 1;
+}
+
+message AbortMergeRequest {
+  string repo_path = 1;
+}
+
+message AbortMergeResponse {
+  bool success = 1;
+  string summary = 2;
+}
+
+message IsMergingRequest {
+  string repo_path = 1;
+}
+
+message IsMergingResponse {
+  bool is_merging = 1;
+}
+
+// --- Branch Management Messages ---
+
+message CreateBranchRequest {
+  string repo_path = 1;
+  string name = 2;
+  bool checkout = 3;
+  string start_point = 4;
+}
+
+message CreateBranchResponse {
+  bool success = 1;
+  string name = 2;
+}
+
+message DeleteBranchRequest {
+  string repo_path = 1;
+  string name = 2;
+  bool force = 3;
+}
+
+message DeleteBranchResponse {
+  bool success = 1;
+}
+
+// Blame
+message BlameRequest {
+  string repo_path = 1;
+  string file_path = 2;
+}
+
+message BlameLine {
+  string hash = 1;
+  string author = 2;
+  string date = 3;
+  int32 line_no = 4;
+  string content = 5;
+}
+
+message BlameResponse {
+  repeated BlameLine lines = 1;
+}
+
+// --- Cherry-Pick / Revert Messages ---
+
+message CherryPickRequest {
+  string repo_path = 1;
+  string commit_hash = 2;
+}
+
+message CherryPickResponse {
+  bool success = 1;
+  string summary = 2;
+  bool has_conflicts = 3;
+  repeated string conflict_files = 4;
+  string error = 5;
+}
+
+message RevertRequest {
+  string repo_path = 1;
+  string commit_hash = 2;
+}
+
+message RevertResponse {
+  bool success = 1;
+  string summary = 2;
+  bool has_conflicts = 3;
+  repeated string conflict_files = 4;
+  string error = 5;
+}
+
+// --- Tag Management Messages ---
+
+message TagInfo {
+  string name = 1;
+  string hash = 2;
+  string date = 3;
+  string message = 4;
+  bool is_annotated = 5;
+}
+
+message ListTagsRequest {
+  string repo_path = 1;
+}
+
+message ListTagsResponse {
+  repeated TagInfo tags = 1;
+}
+
+message CreateTagRequest {
+  string repo_path = 1;
+  string tag_name = 2;
+  string commit_hash = 3;
+  string message = 4;
+}
+
+message CreateTagResponse {
+  bool success = 1;
+}
+
+message DeleteTagRequest {
+  string repo_path = 1;
+  string tag_name = 2;
+}
+
+message DeleteTagResponse {
+  bool success = 1;
+}
+
+message PushTagRequest {
+  string repo_path = 1;
+  string remote = 2;
+  string tag_name = 3;
+}
+
+message PushTagResponse {
+  bool success = 1;
+  string summary = 2;
+}
+
+// --- Stash Messages ---
+
+message StashEntry {
+  int32 index = 1;
+  string message = 2;
+  string branch = 3;
+  string date = 4;
+}
+
+message ListStashesRequest { string repo_path = 1; }
+message ListStashesResponse { repeated StashEntry stashes = 1; }
+
+message CreateStashRequest {
+  string repo_path = 1;
+  string message = 2;
+  bool include_untracked = 3;
+}
+message CreateStashResponse { bool success = 1; }
+
+message ApplyStashRequest { string repo_path = 1; int32 index = 2; }
+message ApplyStashResponse { bool success = 1; string summary = 2; }
+
+message PopStashRequest { string repo_path = 1; int32 index = 2; }
+message PopStashResponse { bool success = 1; string summary = 2; }
+
+message DropStashRequest { string repo_path = 1; int32 index = 2; }
+message DropStashResponse { bool success = 1; }
+
+message ShowStashRequest { string repo_path = 1; int32 index = 2; }
+message ShowStashResponse { string patch = 1; }
+
+// --- Rebase ---
+
+message RebaseRequest {
+  string repo_path = 1;
+  string onto_branch = 2;
+}
+message RebaseResponse {
+  bool success = 1;
+  string summary = 2;
+  bool has_conflicts = 3;
+  repeated string conflict_files = 4;
+  string error = 5;
+}
+
+message AbortRebaseRequest { string repo_path = 1; }
+message AbortRebaseResponse { bool success = 1; }
+
+message ContinueRebaseRequest { string repo_path = 1; }
+message ContinueRebaseResponse {
+  bool success = 1;
+  string summary = 2;
+  bool has_conflicts = 3;
+  repeated string conflict_files = 4;
+  string error = 5;
+}
+
+message IsRebasingRequest { string repo_path = 1; }
+message IsRebasingResponse { bool is_rebasing = 1; }
+
+// --- Interactive Rebase ---
+
+message RebaseTodoEntry {
+  string action = 1;
+  string hash = 2;
+  string message = 3;
+}
+message InteractiveRebaseRequest {
+  string repo_path = 1;
+  string base_commit = 2;
+  repeated RebaseTodoEntry entries = 3;
+}
+message InteractiveRebaseResponse {
+  bool success = 1;
+  string summary = 2;
+  bool has_conflicts = 3;
+  repeated string conflict_files = 4;
+  string error = 5;
+}
+
+message GetRebaseTodoRequest { string repo_path = 1; }
+message GetRebaseTodoResponse { repeated RebaseTodoEntry entries = 1; }
+
+// --- Reflog ---
+
+message ReflogEntry {
+  string hash = 1;
+  string action = 2;
+  string message = 3;
+  string date = 4;
+}
+message ListReflogRequest {
+  string repo_path = 1;
+  int32 limit = 2;
+}
+message ListReflogResponse {
+  repeated ReflogEntry entries = 1;
+}
+
+// --- Task Messages ---
+
+message Task {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string status = 4;        // "backlog", "in-progress", "done"
+  repeated string labels = 5;
+  string branch = 6;        // linked branch name
+  repeated string commits = 7; // linked commit hashes
+  string created = 8;       // ISO 8601 date
+  string updated = 9;       // ISO 8601 date
+  int32 priority = 10;      // 0 = none, 1 = low, 2 = medium, 3 = high
+}
+
+message ListTasksRequest {
+  string repo_path = 1;
+  string status_filter = 2; // optional: filter by status
+}
+
+message ListTasksResponse {
+  repeated Task tasks = 1;
+}
+
+message CreateTaskRequest {
+  string repo_path = 1;
+  string title = 2;
+  string description = 3;
+  repeated string labels = 4;
+  int32 priority = 5;
+}
+
+message CreateTaskResponse {
+  Task task = 1;
+}
+
+message UpdateTaskRequest {
+  string repo_path = 1;
+  string id = 2;
+  string title = 3;
+  string description = 4;
+  string status = 5;
+  repeated string labels = 6;
+  string branch = 7;
+  int32 priority = 8;
+}
+
+message UpdateTaskResponse {
+  Task task = 1;
+}
+
+message DeleteTaskRequest {
+  string repo_path = 1;
+  string id = 2;
+}
+
+message DeleteTaskResponse {
+  bool success = 1;
+}
+
+message StartTaskRequest {
+  string repo_path = 1;
+  string id = 2;
+  bool create_branch = 3;   // if true, creates task/<id>-<slug> branch
+}
+
+message StartTaskResponse {
+  Task task = 1;
+  string branch_name = 2;   // the branch created (if any)
+}
+
+// --- Service ---
+
+service GitService {
+  rpc ListCommits(ListCommitsRequest) returns (ListCommitsResponse);
+  rpc ListBranches(ListBranchesRequest) returns (ListBranchesResponse);
+  rpc GetCommitDetails(GetCommitDetailsRequest) returns (GetCommitDetailsResponse);
+  rpc GetFileDiff(GetFileDiffRequest) returns (GetFileDiffResponse);
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+  rpc Pull(PullRequest) returns (PullResponse);
+  rpc ListRemotes(ListRemotesRequest) returns (ListRemotesResponse);
+  rpc ListRemoteBranches(ListRemoteBranchesRequest) returns (ListRemoteBranchesResponse);
+  rpc ExecuteDSL(ExecuteDSLRequest) returns (ExecuteDSLResponse);
+  rpc DSLAutoComplete(DSLAutoCompleteRequest) returns (DSLAutoCompleteResponse);
+  rpc StageFiles(StageFilesRequest) returns (StageFilesResponse);
+  rpc UnstageFiles(UnstageFilesRequest) returns (UnstageFilesResponse);
+  rpc CreateCommit(CreateCommitRequest) returns (CreateCommitResponse);
+  rpc GetWorkingDiff(GetWorkingDiffRequest) returns (GetWorkingDiffResponse);
+  rpc Push(PushRequest) returns (PushResponse);
+  rpc Merge(MergeRequest) returns (MergeResponse);
+  rpc CreateBranch(CreateBranchRequest) returns (CreateBranchResponse);
+  rpc DeleteBranch(DeleteBranchRequest) returns (DeleteBranchResponse);
+  rpc Blame(BlameRequest) returns (BlameResponse);
+  rpc GetConflictDetails(GetConflictDetailsRequest) returns (GetConflictDetailsResponse);
+  rpc ResolveConflict(ResolveConflictRequest) returns (ResolveConflictResponse);
+  rpc AbortMerge(AbortMergeRequest) returns (AbortMergeResponse);
+  rpc IsMerging(IsMergingRequest) returns (IsMergingResponse);
+  rpc ListStashes(ListStashesRequest) returns (ListStashesResponse);
+  rpc CreateStash(CreateStashRequest) returns (CreateStashResponse);
+  rpc ApplyStash(ApplyStashRequest) returns (ApplyStashResponse);
+  rpc PopStash(PopStashRequest) returns (PopStashResponse);
+  rpc DropStash(DropStashRequest) returns (DropStashResponse);
+  rpc ShowStash(ShowStashRequest) returns (ShowStashResponse);
+  rpc CherryPick(CherryPickRequest) returns (CherryPickResponse);
+  rpc Revert(RevertRequest) returns (RevertResponse);
+  rpc ListTags(ListTagsRequest) returns (ListTagsResponse);
+  rpc CreateTag(CreateTagRequest) returns (CreateTagResponse);
+  rpc DeleteTag(DeleteTagRequest) returns (DeleteTagResponse);
+  rpc PushTag(PushTagRequest) returns (PushTagResponse);
+  rpc Rebase(RebaseRequest) returns (RebaseResponse);
+  rpc AbortRebase(AbortRebaseRequest) returns (AbortRebaseResponse);
+  rpc ContinueRebase(ContinueRebaseRequest) returns (ContinueRebaseResponse);
+  rpc IsRebasing(IsRebasingRequest) returns (IsRebasingResponse);
+  rpc InteractiveRebase(InteractiveRebaseRequest) returns (InteractiveRebaseResponse);
+  rpc GetRebaseTodo(GetRebaseTodoRequest) returns (GetRebaseTodoResponse);
+  rpc ListReflog(ListReflogRequest) returns (ListReflogResponse);
+
+  // Tasks
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+  rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse);
+  rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse);
+  rpc StartTask(StartTaskRequest) returns (StartTaskResponse);
+}
