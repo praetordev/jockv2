@@ -1,7 +1,7 @@
 ---
 id: 007
 title: Add auto-update support with electron-updater
-status: in-progress
+status: done
 priority: 2
 labels: [feature, distribution, P1]
 branch: feature/auto-update
