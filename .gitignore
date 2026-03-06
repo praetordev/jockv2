@@ -9,4 +9,3 @@ coverage/
 .env*
 !.env.example
 backend/bin/
-backend/internal/proto/*.pb.go
