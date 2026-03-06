@@ -441,6 +441,10 @@ ipcMain.handle('git:add-remote', (_event, url: string) => {
 
 ipcMain.handle('git:stash-and-switch', async (_event, targetBranch: string) => {
   if (!currentRepoPath) return { success: false, error: 'No repository open' };
+  // Validate branch name to prevent command injection
+  if (!/^[\w./-]+$/.test(targetBranch)) {
+    return { success: false, error: 'Invalid branch name' };
+  }
   const opts = { cwd: currentRepoPath, encoding: 'utf-8' as const, timeout: 15000 };
   try {
     // Abort any in-progress merge/cherry-pick/rebase that would block checkout
@@ -456,15 +460,16 @@ ipcMain.handle('git:stash-and-switch', async (_event, targetBranch: string) => {
     const status = execSync('git status --porcelain', opts).trim();
     const hasChanges = status.length > 0;
 
+    // Use direct git commands for stash to avoid gRPC round-trip issues
     if (hasChanges) {
-      await createStash(currentRepoPath, 'jock-auto-stash', false);
+      execSync('git stash push -m "jock-auto-stash"', opts);
     }
 
     execSync(`git checkout ${targetBranch}`, opts);
 
     if (hasChanges) {
       try {
-        await popStash(currentRepoPath, 0);
+        execSync('git stash pop', opts);
       } catch (e: any) {
         return { success: true, warning: 'Switched branch but stash pop had conflicts. Resolve manually.' };
       }
