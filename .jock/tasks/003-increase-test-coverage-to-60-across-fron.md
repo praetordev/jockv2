@@ -1,7 +1,7 @@
 ---
 id: 003
 title: Increase test coverage to 60%+ across frontend and backend
-status: backlog
+status: in-progress
 priority: 3
 labels: [testing, quality, P0]
 branch: feature/test-coverage

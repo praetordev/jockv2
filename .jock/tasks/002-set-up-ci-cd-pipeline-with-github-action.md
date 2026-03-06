@@ -1,7 +1,7 @@
 ---
 id: 002
 title: Set up CI/CD pipeline with GitHub Actions
-status: in-progress
+status: done
 priority: 3
 labels: [ci-cd, devops, P0]
 branch: feature/ci-cd-pipeline
