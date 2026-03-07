@@ -1,7 +1,7 @@
 ---
 id: 008
 title: Accessibility audit and keyboard navigation improvements
-status: backlog
+status: in-progress
 priority: 2
 labels: [accessibility, ux, P2]
 branch: feature/accessibility
