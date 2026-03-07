@@ -1,7 +1,7 @@
 ---
 id: 009
 title: Implement global search across commits, files, and branches
-status: in-progress
+status: done
 priority: 2
 labels: [feature, ux, P1]
 branch: feature/global-search
