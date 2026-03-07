@@ -10,7 +10,7 @@ export const KEYMAP_ACTIONS: KeymapAction[] = [
   { id: 'showGraph', label: 'Show commit graph', defaultChord: 'Cmd+g', category: 'navigation' },
   { id: 'showTerminal', label: 'Show terminal', defaultChord: 'Cmd+t', category: 'navigation' },
   { id: 'focusDSL', label: 'Focus DSL query bar', defaultChord: 'Cmd+q', category: 'navigation' },
-  { id: 'focusCommitMsg', label: 'Focus commit message', defaultChord: 'Cmd+k', category: 'navigation' },
+  { id: 'commandPalette', label: 'Command palette', defaultChord: 'Cmd+k', category: 'navigation' },
   { id: 'toggleSidebar', label: 'Toggle sidebar', defaultChord: 'Cmd+\\', category: 'navigation' },
   { id: 'openSettings', label: 'Open settings', defaultChord: 'Cmd+,', category: 'navigation' },
 

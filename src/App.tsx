@@ -11,6 +11,7 @@ import MergeDialog from './components/modals/MergeDialog';
 import RemoteSetupModal from './components/modals/RemoteSetupModal';
 import CreateTagModal from './components/modals/CreateTagModal';
 import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
+import CommandPalette from './components/CommandPalette';
 
 function AppShell() {
   const {
@@ -35,9 +36,17 @@ function AppShell() {
   const { addToast } = useToast();
   const prevPushResult = useRef(pushResult);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Cmd+K / Ctrl+K — command palette (works even in inputs)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(prev => !prev);
+        return;
+      }
+      // ? — keyboard shortcuts help (skip when typing)
       const tag = (document.activeElement?.tagName ?? '').toLowerCase();
       if (tag === 'input' || tag === 'textarea' || (document.activeElement as HTMLElement)?.isContentEditable) return;
       if (e.key === '?') {
@@ -125,6 +134,11 @@ function AppShell() {
         onSuccess={() => { tags.refresh(); refreshCommits(); }}
         doCreateTag={tags.createTag}
         defaultCommitHash={createTagCommitHash}
+      />
+
+      <CommandPalette
+        show={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
       />
 
       <KeyboardShortcutsHelp

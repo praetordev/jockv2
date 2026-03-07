@@ -364,7 +364,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     { chord: keymap.showGraph, action: () => setMainView('graph'), label: 'Show commit graph' },
     { chord: keymap.showTerminal, action: () => { setBottomMode('terminal'); }, label: 'Show terminal' },
     { chord: keymap.focusDSL, action: () => { setBottomMode('query'); setTimeout(() => dslInputRef.current?.focus(), 50); }, label: 'Focus DSL query bar' },
-    { chord: keymap.focusCommitMsg, action: () => { commitMsgRef.current?.focus(); }, label: 'Focus commit message' },
     { chord: keymap.quickStash, action: () => { stashes.createStash('Quick stash', false).then(() => sourceControl.refresh()); }, label: 'Quick stash' },
     { chord: keymap.toggleSidebar, action: () => setIsSidebarOpen(prev => !prev), label: 'Toggle sidebar' },
     { chord: keymap.push, action: () => doPush(undefined, undefined, false, !hasRemote), label: 'Push' },
