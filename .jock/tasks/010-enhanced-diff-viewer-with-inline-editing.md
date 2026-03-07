@@ -1,7 +1,7 @@
 ---
 id: 010
 title: Enhanced diff viewer with inline editing and split view
-status: backlog
+status: in-progress
 priority: 1
 labels: [feature, editor, P2]
 branch: feature/enhanced-diff-viewer
