@@ -17,6 +17,41 @@
   --text-muted: #71717a;
 }
 
+/* High-contrast mode: stronger text, brighter borders, bolder focus rings */
+.high-contrast {
+  --bg-primary: #000000;
+  --bg-secondary: #111111;
+  --bg-tertiary: #222222;
+  --bg-hover: rgba(50, 50, 50, 0.7);
+  --border: rgba(100, 100, 100, 0.8);
+  --text-primary: #ffffff;
+  --text-secondary: #d4d4d8;
+  --text-muted: #a1a1aa;
+}
+
+.high-contrast *:focus-visible {
+  outline: 2px solid #F14E32 !important;
+  outline-offset: 2px;
+}
+
+/* prefers-contrast media query for OS-level high contrast */
+@media (prefers-contrast: more) {
+  :root {
+    --bg-primary: #000000;
+    --bg-secondary: #111111;
+    --bg-tertiary: #222222;
+    --border: rgba(100, 100, 100, 0.8);
+    --text-primary: #ffffff;
+    --text-secondary: #d4d4d8;
+    --text-muted: #a1a1aa;
+  }
+
+  *:focus-visible {
+    outline: 2px solid #F14E32 !important;
+    outline-offset: 2px;
+  }
+}
+
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);

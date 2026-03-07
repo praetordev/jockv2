@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { ToastProvider, useToast } from './context/ToastContext';
@@ -10,6 +10,7 @@ import CreateBranchModal from './components/modals/CreateBranchModal';
 import MergeDialog from './components/modals/MergeDialog';
 import RemoteSetupModal from './components/modals/RemoteSetupModal';
 import CreateTagModal from './components/modals/CreateTagModal';
+import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
 
 function AppShell() {
   const {
@@ -28,10 +29,25 @@ function AppShell() {
     refreshCommits, refreshBranches, sourceControl,
     doCreateBranch, creatingBranch,
     mergeConflicts, tags, checkRemote,
+    settings,
   } = useAppContext();
 
   const { addToast } = useToast();
   const prevPushResult = useRef(pushResult);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (document.activeElement?.tagName ?? '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || (document.activeElement as HTMLElement)?.isContentEditable) return;
+      if (e.key === '?') {
+        e.preventDefault();
+        setShowShortcutsHelp(prev => !prev);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
 
   useEffect(() => {
     if (pushResult && pushResult !== prevPushResult.current) {
@@ -45,9 +61,12 @@ function AppShell() {
   }, [pushResult, addToast]);
 
   return (
-    <div className="flex flex-col h-screen w-full bg-zinc-950 text-zinc-300 overflow-hidden select-none">
+    <div className={`flex flex-col h-screen w-full bg-zinc-950 text-zinc-300 overflow-hidden select-none${settings.appearance.highContrast ? ' high-contrast' : ''}`}>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:bg-zinc-800 focus:text-zinc-100 focus:px-4 focus:py-2 focus:rounded-md focus:text-sm">
+        Skip to main content
+      </a>
       {backendError && (
-        <div className="bg-red-900/80 text-red-200 px-4 py-2 text-sm flex items-center gap-2 shrink-0">
+        <div role="alert" className="bg-red-900/80 text-red-200 px-4 py-2 text-sm flex items-center gap-2 shrink-0">
           <AlertTriangle size={16} />
           <span>Backend failed to start: {backendError}</span>
         </div>
@@ -106,6 +125,12 @@ function AppShell() {
         onSuccess={() => { tags.refresh(); refreshCommits(); }}
         doCreateTag={tags.createTag}
         defaultCommitHash={createTagCommitHash}
+      />
+
+      <KeyboardShortcutsHelp
+        show={showShortcutsHelp}
+        onClose={() => setShowShortcutsHelp(false)}
+        keybindings={settings.keybindings}
       />
 
       <ToastContainer />

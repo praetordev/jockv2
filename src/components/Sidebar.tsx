@@ -51,7 +51,7 @@ export default function Sidebar() {
   const repoButtonRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <div className="w-64 flex-shrink-0 border-r border-zinc-800/60 bg-zinc-900/40 flex flex-col">
+    <aside aria-label="Sidebar" className="w-64 flex-shrink-0 border-r border-zinc-800/60 bg-zinc-900/40 flex flex-col">
       {/* Header */}
       <div className="h-14 flex items-center px-4 pl-24 border-b border-zinc-800/60 font-medium text-zinc-100 relative" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
         <button
@@ -272,14 +272,14 @@ export default function Sidebar() {
                   {f.status === 'modified' && <FileEdit className="w-3 h-3 mr-1.5 text-zinc-400 flex-shrink-0" />}
                   {f.status === 'deleted' && <FileMinus className="w-3 h-3 mr-1.5 text-rose-500 flex-shrink-0" />}
                   <span className="truncate flex-1 text-left">{f.path.split('/').pop()}</span>
-                  <span
-                    role="button"
+                  <button
+                    type="button"
+                    aria-label={`Unstage ${f.path.split('/').pop()}`}
                     onClick={(e) => { e.stopPropagation(); sourceControl.unstageFiles([f.path]); }}
                     className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-zinc-200 transition-all"
-                    title="Unstage"
                   >
                     <Minus className="w-3 h-3" />
-                  </span>
+                  </button>
                 </button>
               ))}
             </>
@@ -320,14 +320,14 @@ export default function Sidebar() {
                   {f.status === 'modified' && <FileEdit className="w-3 h-3 mr-1.5 text-zinc-400 flex-shrink-0" />}
                   {f.status === 'deleted' && <FileMinus className="w-3 h-3 mr-1.5 text-rose-500 flex-shrink-0" />}
                   <span className="truncate flex-1 text-left">{f.path.split('/').pop()}</span>
-                  <span
-                    role="button"
+                  <button
+                    type="button"
+                    aria-label={`Stage ${f.path.split('/').pop()}`}
                     onClick={(e) => { e.stopPropagation(); sourceControl.stageFiles([f.path]); }}
                     className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-zinc-200 transition-all"
-                    title="Stage"
                   >
                     <Plus className="w-3 h-3" />
-                  </span>
+                  </button>
                 </button>
               ))}
               </>
@@ -426,7 +426,7 @@ export default function Sidebar() {
                   <button
                     onClick={(e) => { e.stopPropagation(); setMergeBranch(b.name); setShowMergeDialog(true); }}
                     className="text-zinc-500 hover:text-zinc-200"
-                    title={`Merge ${b.name} into current branch`}
+                    aria-label={`Merge ${b.name} into current branch`}
                   >
                     <GitMerge className="w-3.5 h-3.5" />
                   </button>
@@ -445,7 +445,7 @@ export default function Sidebar() {
                       }
                     }}
                     className="text-zinc-500 hover:text-zinc-200"
-                    title={`Rebase onto ${b.name}`}
+                    aria-label={`Rebase onto ${b.name}`}
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
@@ -461,7 +461,7 @@ export default function Sidebar() {
                       }
                     }}
                     className="text-zinc-500 hover:text-rose-400"
-                    title={`Delete ${b.name}`}
+                    aria-label={`Delete ${b.name}`}
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -555,14 +555,14 @@ export default function Sidebar() {
                 <span className="font-mono text-[10px] text-zinc-600 mr-2 flex-shrink-0">{tag.hash}</span>
                 <div className="hidden group-hover:flex items-center gap-0.5 flex-shrink-0">
                   <button
-                    title="Push tag"
+                    aria-label={`Push tag ${tag.name}`}
                     onClick={(e) => { e.stopPropagation(); tags.pushTag(tag.name); }}
                     className="text-emerald-500 hover:text-emerald-400 p-0.5"
                   >
                     <Upload className="w-3 h-3" />
                   </button>
                   <button
-                    title="Delete tag"
+                    aria-label={`Delete tag ${tag.name}`}
                     onClick={async (e) => {
                       e.stopPropagation();
                       await tags.deleteTag(tag.name);
@@ -600,8 +600,8 @@ export default function Sidebar() {
                   className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-2 py-0.5 text-xs text-zinc-300 outline-none focus:border-zinc-500"
                   onKeyDown={(e) => { if (e.key === 'Escape') { setShowStashInput(false); setStashMessageInput(''); } }}
                 />
-                <button type="submit" className="text-emerald-400 hover:text-emerald-300 p-0.5"><Check className="w-3 h-3" /></button>
-                <button type="button" onClick={() => { setShowStashInput(false); setStashMessageInput(''); }} className="text-zinc-500 hover:text-zinc-300 p-0.5"><X className="w-3 h-3" /></button>
+                <button type="submit" aria-label="Save stash" className="text-emerald-400 hover:text-emerald-300 p-0.5"><Check className="w-3 h-3" /></button>
+                <button type="button" aria-label="Cancel stash" onClick={() => { setShowStashInput(false); setStashMessageInput(''); }} className="text-zinc-500 hover:text-zinc-300 p-0.5"><X className="w-3 h-3" /></button>
               </form>
             ) : (
               <button
@@ -649,21 +649,21 @@ export default function Sidebar() {
                 <span className="text-zinc-600 text-[10px] mr-2 flex-shrink-0">{stash.date}</span>
                 <div className="hidden group-hover:flex items-center gap-0.5 flex-shrink-0">
                   <button
-                    title="Apply"
+                    aria-label={`Apply stash: ${stash.message}`}
                     onClick={async (e) => { e.stopPropagation(); await stashes.applyStash(stash.index); sourceControl.refresh(); }}
                     className="text-emerald-500 hover:text-emerald-400 p-0.5"
                   >
                     <Play className="w-3 h-3" />
                   </button>
                   <button
-                    title="Pop"
+                    aria-label={`Pop stash: ${stash.message}`}
                     onClick={async (e) => { e.stopPropagation(); await stashes.popStash(stash.index); sourceControl.refresh(); }}
                     className="text-blue-500 hover:text-blue-400 p-0.5"
                   >
                     <Download className="w-3 h-3" />
                   </button>
                   <button
-                    title="Drop"
+                    aria-label={`Drop stash: ${stash.message}`}
                     onClick={async (e) => {
                       e.stopPropagation();
                       await stashes.dropStash(stash.index);
@@ -715,6 +715,6 @@ export default function Sidebar() {
         </button>
         <div className="text-xs">Git Client v0.1.0</div>
       </div>
-    </div>
+    </aside>
   );
 }

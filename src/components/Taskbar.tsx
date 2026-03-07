@@ -29,7 +29,7 @@ export default function Taskbar({
 }: TaskbarProps) {
   const update = useAutoUpdate();
   return (
-    <div className="h-8 flex-shrink-0 border-t border-zinc-800/60 bg-zinc-900/60 flex items-center px-3 gap-1 text-xs">
+    <nav aria-label="Main toolbar" className="h-8 flex-shrink-0 border-t border-zinc-800/60 bg-zinc-900/60 flex items-center px-3 gap-1 text-xs">
       <button
         onClick={onOpenRepo}
         className="flex items-center px-2 py-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
@@ -41,7 +41,7 @@ export default function Taskbar({
       <button
         onClick={onRefresh}
         className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
-        title="Refresh"
+        aria-label="Refresh"
       >
         <RefreshCw className="w-3.5 h-3.5" />
       </button>
@@ -129,6 +129,6 @@ export default function Taskbar({
           Restart to Update
         </button>
       )}
-    </div>
+    </nav>
   );
 }

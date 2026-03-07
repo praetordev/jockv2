@@ -21,7 +21,7 @@ export default function ToastContainer() {
   const { toasts, removeToast } = useToast();
 
   return (
-    <div className="fixed bottom-10 right-3 z-[9999] flex flex-col gap-2 pointer-events-none max-w-sm">
+    <div role="status" aria-live="polite" aria-atomic="false" className="fixed bottom-10 right-3 z-[9999] flex flex-col gap-2 pointer-events-none max-w-sm">
       <AnimatePresence mode="popLayout">
         {toasts.map(toast => (
           <motion.div
@@ -50,6 +50,7 @@ export default function ToastContainer() {
             </div>
             <button
               onClick={() => removeToast(toast.id)}
+              aria-label="Dismiss notification"
               className="p-0.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors shrink-0"
             >
               <X className="w-3 h-3" />
