@@ -667,6 +667,19 @@ ipcMain.handle('git:get-working-diff', async (_event, filePath: string, staged: 
   }
 });
 
+ipcMain.handle('git:stage-hunk', async (_event, patchText: string, reverse: boolean = false) => {
+  if (!currentRepoPath) return { success: false, error: 'No repository open' };
+  try {
+    const args = ['apply', '--cached', '--unidiff-zero'];
+    if (reverse) args.push('--reverse');
+    const { execFileSync } = require('child_process');
+    execFileSync('git', args, { cwd: currentRepoPath, input: patchText, encoding: 'utf-8' });
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || String(err) };
+  }
+});
+
 // --- Push IPC Handler ---
 
 ipcMain.handle('git:push', async (_event, remote?: string, branch?: string, force?: boolean, setUpstream?: boolean) => {
