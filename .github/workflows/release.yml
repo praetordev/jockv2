@@ -44,6 +44,12 @@ jobs:
           go build -o bin/jockq ./cmd/jockq/
           go build -o bin/jockmcp ./cmd/jockmcp/
 
+      - name: Build Vex
+        run: |
+          git clone https://github.com/praetordev/vex.git /tmp/vex
+          cd /tmp/vex
+          go build -o $GITHUB_WORKSPACE/backend/bin/vex ./cmd/vex/
+
       - name: Build frontend
         run: npx vite build
 
