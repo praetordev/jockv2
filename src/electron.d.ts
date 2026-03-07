@@ -31,6 +31,7 @@ interface IPCChannelMap {
   'git:list-remote-branches': { args: [remote: string]; result: { branches: string[] } };
 
   // Stage / Unstage / Commit
+  'git:stage-hunk': { args: [patchText: string, reverse?: boolean]; result: { success: boolean; error?: string } };
   'git:stage-files': { args: [paths?: string[]]; result: { success: boolean; error?: string } };
   'git:unstage-files': { args: [paths?: string[]]; result: { success: boolean; error?: string } };
   'git:create-commit': { args: [message: string, amend?: boolean]; result: { hash: string; error?: string } };

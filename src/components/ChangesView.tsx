@@ -1,8 +1,11 @@
-import React from 'react';
+import { useState, useCallback } from 'react';
 import { FileEdit, FilePlus, FileMinus, X, User } from 'lucide-react';
 import ConflictResolutionView from './ConflictResolutionView';
+import DiffViewer from './DiffViewer';
+import type { DiffViewMode, DiffAnnotation } from './DiffViewer';
 import type { FileChange } from '../types';
 import type { BlameLine, useSourceControl, useMergeConflicts } from '../hooks/useGitData';
+import { parseDiff, buildHunkPatch } from '../utils/diffParser';
 
 interface ChangesViewProps {
   fileChanges: FileChange[];
@@ -21,37 +24,6 @@ interface ChangesViewProps {
   mergeBranch: string;
 }
 
-function DiffLines({ patch }: { patch: string }) {
-  return (
-    <div className="whitespace-pre">
-      {patch.split('\n').map((line, i) => {
-        let lineClass = 'text-zinc-400';
-        let bgClass = 'hover:bg-zinc-900';
-
-        if (line.startsWith('diff ') || line.startsWith('index ') || line.startsWith('---') || line.startsWith('+++')) {
-          lineClass = 'text-zinc-500';
-          bgClass = 'bg-zinc-800/20';
-        } else if (line.startsWith('@@')) {
-          lineClass = 'text-zinc-500';
-          bgClass = 'bg-zinc-800/30';
-        } else if (line.startsWith('+')) {
-          lineClass = 'text-emerald-400';
-          bgClass = 'bg-emerald-500/10 hover:bg-emerald-500/20';
-        } else if (line.startsWith('-')) {
-          lineClass = 'text-rose-400';
-          bgClass = 'bg-rose-500/10 hover:bg-rose-500/20';
-        }
-
-        return (
-          <div key={i} className={`px-2 py-0.5 ${bgClass}`}>
-            <span className={lineClass}>{line}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 export default function ChangesView({
   fileChanges,
   selectedFile,
@@ -68,6 +40,67 @@ export default function ChangesView({
   onOpenInEditor,
   mergeBranch,
 }: ChangesViewProps) {
+  const [diffMode, setDiffMode] = useState<DiffViewMode>('unified');
+  const [annotations, setAnnotations] = useState<DiffAnnotation[]>([]);
+
+  const currentPatch = sourceControl.selectedWorkingFile
+    ? sourceControl.workingDiff
+    : selectedFile?.patch ?? '';
+
+  const currentFilePath = sourceControl.selectedWorkingFile
+    ? sourceControl.selectedWorkingFile.path
+    : selectedFile?.path;
+
+  const isWorkingDiff = !!sourceControl.selectedWorkingFile;
+
+  const handleStageHunk = useCallback(async (hunkIndex: number) => {
+    if (!currentPatch || !currentFilePath) return;
+    const parsed = parseDiff(currentPatch);
+    if (hunkIndex >= parsed.hunks.length) return;
+    const patchText = buildHunkPatch(parsed.headers, parsed.hunks[hunkIndex]);
+    try {
+      await window.electronAPI.invoke('git:stage-hunk', patchText, false);
+      // Refresh the working diff
+      if (sourceControl.selectedWorkingFile) {
+        sourceControl.setSelectedWorkingFile({ ...sourceControl.selectedWorkingFile });
+      }
+    } catch (err) {
+      console.error('Failed to stage hunk:', err);
+    }
+  }, [currentPatch, currentFilePath, sourceControl]);
+
+  const handleUnstageHunk = useCallback(async (hunkIndex: number) => {
+    if (!currentPatch || !currentFilePath) return;
+    const parsed = parseDiff(currentPatch);
+    if (hunkIndex >= parsed.hunks.length) return;
+    const patchText = buildHunkPatch(parsed.headers, parsed.hunks[hunkIndex]);
+    try {
+      await window.electronAPI.invoke('git:stage-hunk', patchText, true);
+      if (sourceControl.selectedWorkingFile) {
+        sourceControl.setSelectedWorkingFile({ ...sourceControl.selectedWorkingFile });
+      }
+    } catch (err) {
+      console.error('Failed to unstage hunk:', err);
+    }
+  }, [currentPatch, currentFilePath, sourceControl]);
+
+  const handleAddAnnotation = useCallback((hunkIndex: number, lineIndex: number, text: string) => {
+    setAnnotations(prev => [
+      ...prev,
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        hunkIndex,
+        lineIndex,
+        text,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+  }, []);
+
+  const handleDeleteAnnotation = useCallback((id: string) => {
+    setAnnotations(prev => prev.filter(a => a.id !== id));
+  }, []);
+
   return (
     <div className="flex-1 flex min-h-0 bg-zinc-950">
       {/* File list */}
@@ -168,9 +201,9 @@ export default function ChangesView({
             )}
           </div>
 
-          <div className="flex-1 overflow-auto p-4 font-mono text-sm leading-relaxed">
+          <div className="flex-1 overflow-hidden font-mono text-sm leading-relaxed">
             {blameFile && blameLines.length > 0 && !sourceControl.selectedWorkingFile ? (
-              <div className="whitespace-pre">
+              <div className="h-full overflow-auto p-4 whitespace-pre">
                 {blameLines.map((line, i) => {
                   const prevLine = i > 0 ? blameLines[i - 1] : null;
                   const isNewBlock = !prevLine || prevLine.hash !== line.hash;
@@ -197,9 +230,26 @@ export default function ChangesView({
                 })}
               </div>
             ) : selectedStashDiff ? (
-              <DiffLines patch={selectedStashDiff} />
-            ) : (sourceControl.selectedWorkingFile ? sourceControl.workingDiff : selectedFile?.patch) ? (
-              <DiffLines patch={sourceControl.selectedWorkingFile ? sourceControl.workingDiff : selectedFile?.patch ?? ''} />
+              <DiffViewer
+                patch={selectedStashDiff}
+                mode={diffMode}
+                onModeChange={setDiffMode}
+                className="h-full"
+              />
+            ) : currentPatch ? (
+              <DiffViewer
+                patch={currentPatch}
+                filePath={currentFilePath}
+                mode={diffMode}
+                onModeChange={setDiffMode}
+                showStaging={isWorkingDiff}
+                onStageHunk={isWorkingDiff ? handleStageHunk : undefined}
+                onUnstageHunk={isWorkingDiff && sourceControl.selectedWorkingFile?.staged ? handleUnstageHunk : undefined}
+                annotations={annotations}
+                onAddAnnotation={handleAddAnnotation}
+                onDeleteAnnotation={handleDeleteAnnotation}
+                className="h-full"
+              />
             ) : (
               <div className="h-full flex items-center justify-center text-zinc-600 italic">
                 No diff available

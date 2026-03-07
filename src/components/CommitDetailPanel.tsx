@@ -1,42 +1,12 @@
 import { useState, useEffect } from 'react';
 import { X, GitCommit, User, Clock, GitBranch, Tag, FileEdit, FilePlus, FileMinus, ChevronLeft } from 'lucide-react';
+import DiffViewer from './DiffViewer';
 import type { Commit, FileChange } from '../types';
 
 interface CommitDetailPanelProps {
   commit: Commit;
   fileChanges: FileChange[];
   onClose: () => void;
-}
-
-function DiffLines({ patch }: { patch: string }) {
-  return (
-    <div className="whitespace-pre text-[11px] font-mono leading-relaxed">
-      {patch.split('\n').map((line, i) => {
-        let lineClass = 'text-zinc-400';
-        let bgClass = 'hover:bg-zinc-900';
-
-        if (line.startsWith('diff ') || line.startsWith('index ') || line.startsWith('---') || line.startsWith('+++')) {
-          lineClass = 'text-zinc-500';
-          bgClass = 'bg-zinc-800/20';
-        } else if (line.startsWith('@@')) {
-          lineClass = 'text-zinc-500';
-          bgClass = 'bg-zinc-800/30';
-        } else if (line.startsWith('+')) {
-          lineClass = 'text-emerald-400';
-          bgClass = 'bg-emerald-500/10 hover:bg-emerald-500/20';
-        } else if (line.startsWith('-')) {
-          lineClass = 'text-rose-400';
-          bgClass = 'bg-rose-500/10 hover:bg-rose-500/20';
-        }
-
-        return (
-          <div key={i} className={`px-2 py-0.5 ${bgClass}`}>
-            <span className={lineClass}>{line}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 export default function CommitDetailPanel({ commit, fileChanges, onClose }: CommitDetailPanelProps) {
@@ -104,7 +74,7 @@ export default function CommitDetailPanel({ commit, fileChanges, onClose }: Comm
             {diffLoading ? (
               <div className="p-3 text-xs text-zinc-500 italic">Loading diff...</div>
             ) : diffPatch ? (
-              <DiffLines patch={diffPatch} />
+              <DiffViewer patch={diffPatch} filePath={selectedFile} showToolbar={false} />
             ) : null}
           </div>
         ) : (
