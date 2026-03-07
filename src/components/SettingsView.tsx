@@ -265,6 +265,27 @@ export default function SettingsView({ settings, onUpdateSetting, onUpdateKeybin
                 ))}
               </div>
             </div>
+
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-zinc-400">High contrast</label>
+              <button
+                onClick={() => onUpdateSetting('appearance', 'highContrast', !settings.appearance.highContrast)}
+                role="switch"
+                aria-checked={settings.appearance.highContrast}
+                className={`relative w-8 h-4 rounded-full transition-colors ${
+                  settings.appearance.highContrast ? 'bg-[#F14E32]' : 'bg-zinc-700'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
+                    settings.appearance.highContrast ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className="text-[11px] text-zinc-600">
+                Increases contrast for better visibility
+              </span>
+            </div>
           </div>
         )}
 

@@ -66,7 +66,7 @@ describe('Taskbar', () => {
     const onRefresh = vi.fn();
     render(<Taskbar {...defaultProps} onRefresh={onRefresh} />);
 
-    const refreshBtn = screen.getByTitle('Refresh');
+    const refreshBtn = screen.getByLabelText('Refresh');
     fireEvent.click(refreshBtn);
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });

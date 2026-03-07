@@ -10,6 +10,7 @@ export interface JockSettings {
   };
   appearance: {
     theme: 'dark' | 'light';
+    highContrast: boolean;
   };
   keybindings?: Record<string, string>;
 }
@@ -26,5 +27,6 @@ export const DEFAULT_SETTINGS: JockSettings = {
   },
   appearance: {
     theme: 'dark',
+    highContrast: false,
   },
 };

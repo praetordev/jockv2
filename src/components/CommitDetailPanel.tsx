@@ -81,7 +81,7 @@ export default function CommitDetailPanel({ commit, fileChanges, onClose }: Comm
             <button
               onClick={() => { setSelectedFile(null); setDiffPatch(null); }}
               className="p-0.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300"
-              title="Back to details"
+              aria-label="Back to details"
             >
               <ChevronLeft size={14} />
             </button>
@@ -89,6 +89,7 @@ export default function CommitDetailPanel({ commit, fileChanges, onClose }: Comm
           <button
             onClick={onClose}
             className="p-0.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300"
+            aria-label="Close commit details"
           >
             <X size={14} />
           </button>

@@ -32,7 +32,7 @@ export default function MainContent() {
   } = ctx;
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <main id="main-content" className="flex-1 flex flex-col min-w-0">
       {/* Drag region when no toolbar */}
       {!repoPath && (
         <div className="h-8" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
@@ -184,6 +184,6 @@ export default function MainContent() {
           />
         )}
       </div>
-    </div>
+    </main>
   );
 }

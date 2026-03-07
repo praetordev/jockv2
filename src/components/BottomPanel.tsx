@@ -82,7 +82,7 @@ export default function BottomPanel({ settings, commits, onCommitSelect, termina
             <button
               onClick={() => createTerminal()}
               className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-zinc-500 hover:text-zinc-300 transition-colors rounded hover:bg-zinc-800/50"
-              title="New Terminal"
+              aria-label="New Terminal"
             >
               <Plus className="w-3 h-3" />
             </button>
