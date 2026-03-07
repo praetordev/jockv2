@@ -77,15 +77,21 @@ const DEFAULT_SETTINGS = {
     fontFamily: '"JetBrains Mono", "Menlo", "Monaco", monospace',
     cursorBlink: true,
   },
+  appearance: {
+    theme: 'dark' as const,
+    highContrast: false,
+  },
 };
 
-function getSettings(): typeof DEFAULT_SETTINGS {
+function getSettings(): typeof DEFAULT_SETTINGS & { keybindings?: Record<string, string> } {
   try {
     if (existsSync(SETTINGS_FILE)) {
       const raw = JSON.parse(readFileSync(SETTINGS_FILE, 'utf-8'));
       return {
         general: { ...DEFAULT_SETTINGS.general, ...raw.general },
         editor: { ...DEFAULT_SETTINGS.editor, ...raw.editor },
+        appearance: { ...DEFAULT_SETTINGS.appearance, ...raw.appearance },
+        ...(raw.keybindings ? { keybindings: raw.keybindings } : {}),
       };
     }
   } catch {}
