@@ -50,6 +50,24 @@ jobs:
           cd /tmp/vex
           go build -o $GITHUB_WORKSPACE/backend/bin/vex ./cmd/vex/
 
+      - name: Sign Go binaries
+        if: matrix.os == 'macos-latest'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          echo "$CSC_LINK" | base64 --decode > /tmp/cert.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import /tmp/cert.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+          IDENTITY=$(security find-identity -v -p codesigning build.keychain | head -1 | awk -F'"' '{print $2}')
+          for bin in backend/bin/jockd backend/bin/jockq backend/bin/jockmcp backend/bin/vex; do
+            codesign --force --options runtime --sign "$IDENTITY" --entitlements build/entitlements.mac.plist "$bin"
+          done
+          rm /tmp/cert.p12
+
       - name: Build frontend
         run: npx vite build
 
