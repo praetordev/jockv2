@@ -103,6 +103,13 @@ interface IPCChannelMap {
   'tasks:delete': { args: [id: string]; result: { success: boolean; error?: string } };
   'tasks:start': { args: [id: string, createBranch?: boolean]; result: { task: Task | null; branchName?: string; error?: string } };
 
+  // Tabs
+  'tabs:get-state': { args: []; result: { openTabs: string[]; activeIndex: number } };
+  'tabs:open': { args: [repoPath: string]; result: { openTabs: string[]; activeIndex: number } };
+  'tabs:close': { args: [index: number]; result: { openTabs: string[]; activeIndex: number; repoPath: string | null } };
+  'tabs:switch': { args: [index: number]; result: { openTabs: string[]; activeIndex: number; repoPath: string | null } };
+  'tabs:reorder': { args: [fromIndex: number, toIndex: number]; result: { openTabs: string[]; activeIndex: number } };
+
   // Settings
   'settings:get': { args: []; result: JockSettings };
   'settings:set': { args: [newSettings: JockSettings]; result: JockSettings };
@@ -118,6 +125,7 @@ interface IPCChannelMap {
 interface IPCEventMap {
   'repo:file-changed': () => void;
   'git:branch-changed': (branch: string | null) => void;
+  'tabs:changed': (state: { openTabs: string[]; activeIndex: number }) => void;
   'settings:changed': (settings: JockSettings) => void;
   'menu:open-settings': () => void;
 }
