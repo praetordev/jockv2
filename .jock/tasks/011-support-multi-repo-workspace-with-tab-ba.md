@@ -1,7 +1,7 @@
 ---
 id: 011
 title: Support multi-repo workspace with tab-based navigation
-status: backlog
+status: in-progress
 priority: 1
 labels: [feature, architecture, P2]
 branch: feature/multi-repo-workspace
