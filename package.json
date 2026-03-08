@@ -1,7 +1,7 @@
 {
   "name": "jock-git-client",
   "private": true,
-  "version": "0.1.12",
+  "version": "0.1.13",
   "author": {
     "name": "Praetor Dev",
     "email": "dev@praetordev.com"
