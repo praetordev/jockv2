@@ -11,6 +11,10 @@ const defaultProps = {
   onPush: vi.fn(),
   onOpenRepo: vi.fn(),
   onRefresh: vi.fn(),
+  tabs: [{ path: '/repos/myrepo', name: 'myrepo' }],
+  activeTabIndex: 0,
+  onSwitchTab: vi.fn(),
+  onCloseTab: vi.fn(),
 };
 
 describe('Taskbar', () => {

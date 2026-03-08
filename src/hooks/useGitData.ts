@@ -118,10 +118,16 @@ export function useCommitDetails(hash: string | null) {
   return { fileChanges, loading };
 }
 
+export interface TabsState {
+  openTabs: string[];
+  activeIndex: number;
+}
+
 export function useOpenRepo() {
   const [repoPath, setRepoPath] = useState<string | null>(null);
   const [repoHistory, setRepoHistory] = useState<string[]>([]);
   const [hasRemote, setHasRemote] = useState(false);
+  const [tabs, setTabs] = useState<TabsState>({ openTabs: [], activeIndex: -1 });
 
   const checkRemote = useCallback(async () => {
     if (!isElectron) return;
@@ -135,16 +141,23 @@ export function useOpenRepo() {
     setRepoHistory(history || []);
   }, []);
 
+  const refreshTabs = useCallback(async () => {
+    if (!isElectron) return;
+    const state = await window.electronAPI.invoke('tabs:get-state');
+    setTabs(state);
+  }, []);
+
   const openRepo = useCallback(async () => {
     if (!isElectron) return null;
     const path = await window.electronAPI.invoke('git:open-repo');
     if (path) {
       setRepoPath(path);
       refreshHistory();
+      refreshTabs();
       checkRemote();
     }
     return path;
-  }, [refreshHistory, checkRemote]);
+  }, [refreshHistory, refreshTabs, checkRemote]);
 
   const createRepo = useCallback(async () => {
     if (!isElectron) return null;
@@ -152,10 +165,11 @@ export function useOpenRepo() {
     if (path) {
       setRepoPath(path);
       refreshHistory();
+      refreshTabs();
       setHasRemote(false);
     }
     return path;
-  }, [refreshHistory]);
+  }, [refreshHistory, refreshTabs]);
 
   const cloneRepo = useCallback(async (url: string) => {
     if (!isElectron) return null;
@@ -163,10 +177,11 @@ export function useOpenRepo() {
     if (path) {
       setRepoPath(path);
       refreshHistory();
+      refreshTabs();
       setHasRemote(true);
     }
     return path;
-  }, [refreshHistory]);
+  }, [refreshHistory, refreshTabs]);
 
   const switchRepo = useCallback(async (targetPath: string) => {
     if (!isElectron) return null;
@@ -174,12 +189,31 @@ export function useOpenRepo() {
     if (path) {
       setRepoPath(path);
       refreshHistory();
+      refreshTabs();
       checkRemote();
     }
     return path;
-  }, [refreshHistory, checkRemote]);
+  }, [refreshHistory, refreshTabs, checkRemote]);
 
-  // Check if a repo is already open on mount + load history
+  const switchTab = useCallback(async (index: number) => {
+    if (!isElectron) return;
+    const result = await window.electronAPI.invoke('tabs:switch', index);
+    setTabs({ openTabs: result.openTabs, activeIndex: result.activeIndex });
+    if (result.repoPath) {
+      setRepoPath(result.repoPath);
+      checkRemote();
+    }
+  }, [checkRemote]);
+
+  const closeTab = useCallback(async (index: number) => {
+    if (!isElectron) return;
+    const result = await window.electronAPI.invoke('tabs:close', index);
+    setTabs({ openTabs: result.openTabs, activeIndex: result.activeIndex });
+    setRepoPath(result.repoPath);
+    if (result.repoPath) checkRemote();
+  }, [checkRemote]);
+
+  // Check if a repo is already open on mount + load history + load tabs
   useEffect(() => {
     if (!isElectron) return;
     window.electronAPI.invoke('git:get-repo-path').then((path: string | null) => {
@@ -189,9 +223,19 @@ export function useOpenRepo() {
       }
     });
     refreshHistory();
-  }, [refreshHistory, checkRemote]);
+    refreshTabs();
+  }, [refreshHistory, refreshTabs, checkRemote]);
 
-  return { repoPath, repoHistory, hasRemote, openRepo, createRepo, cloneRepo, switchRepo, checkRemote };
+  // Listen for tab changes from Electron
+  useEffect(() => {
+    if (!isElectron) return;
+    const unsub = window.electronAPI.on('tabs:changed', (state: { openTabs: string[]; activeIndex: number }) => {
+      setTabs(state);
+    });
+    return unsub;
+  }, []);
+
+  return { repoPath, repoHistory, hasRemote, openRepo, createRepo, cloneRepo, switchRepo, checkRemote, tabs, switchTab, closeTab };
 }
 
 // --- Source Control Hooks ---

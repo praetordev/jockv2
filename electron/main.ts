@@ -64,11 +64,27 @@ process.env.VITE_PUBLIC = app.isPackaged
 
 let mainWindow: BrowserWindow | null = null;
 let currentRepoPath: string | null = null;
-let repoWatcher: FSWatcher | null = null;
+
+// --- Multi-repo tab state ---
+interface TabState {
+  openTabs: string[];  // repo paths
+  activeIndex: number;
+}
+const tabState: TabState = { openTabs: [], activeIndex: -1 };
+
+// Per-repo file watchers
+interface RepoWatcherEntry {
+  watcher: FSWatcher | null;
+  pollTimer: ReturnType<typeof setInterval> | null;
+  lastKnownHead: string | null;
+  lastKnownBranches: string | null;
+}
+const repoWatchers = new Map<string, RepoWatcherEntry>();
 
 const JOCK_HOME = path.join(os.homedir(), '.jock');
 const HISTORY_FILE = path.join(JOCK_HOME, 'history.json');
 const SETTINGS_FILE = path.join(JOCK_HOME, 'settings.json');
+const SESSION_FILE = path.join(JOCK_HOME, 'session.json');
 
 const DEFAULT_SETTINGS = {
   general: { commitListLimit: 100, defaultShell: '' },
@@ -155,52 +171,116 @@ function addToRepoHistory(repoPath: string) {
   writeFileSync(HISTORY_FILE, JSON.stringify(history));
 }
 
+// --- Session persistence ---
+
+function getSession(): TabState {
+  try {
+    if (existsSync(SESSION_FILE)) {
+      const raw = JSON.parse(readFileSync(SESSION_FILE, 'utf-8'));
+      if (Array.isArray(raw.openTabs)) {
+        return {
+          openTabs: raw.openTabs.filter((p: string) => existsSync(p)),
+          activeIndex: typeof raw.activeIndex === 'number' ? raw.activeIndex : 0,
+        };
+      }
+    }
+  } catch {}
+  return { openTabs: [], activeIndex: -1 };
+}
+
+function saveSession() {
+  mkdirSync(JOCK_HOME, { recursive: true });
+  writeFileSync(SESSION_FILE, JSON.stringify({
+    openTabs: tabState.openTabs,
+    activeIndex: tabState.activeIndex,
+  }));
+}
+
 function setCurrentRepo(repoPath: string) {
   currentRepoPath = repoPath;
   addToRepoHistory(repoPath);
-  startRepoWatcher(repoPath);
+  ensureRepoWatcher(repoPath);
 }
 
-let pollTimer: ReturnType<typeof setInterval> | null = null;
-let lastKnownHead: string | null = null;
-let lastKnownBranches: string | null = null;
+function activateTab(repoPath: string) {
+  const idx = tabState.openTabs.indexOf(repoPath);
+  if (idx >= 0) {
+    tabState.activeIndex = idx;
+  } else {
+    tabState.openTabs.push(repoPath);
+    tabState.activeIndex = tabState.openTabs.length - 1;
+  }
+  setCurrentRepo(repoPath);
+  saveSession();
+  emitTabState();
+}
+
+function closeTab(index: number) {
+  if (index < 0 || index >= tabState.openTabs.length) return;
+  const closedPath = tabState.openTabs[index];
+  tabState.openTabs.splice(index, 1);
+
+  // Stop watcher if no tab references this repo
+  if (!tabState.openTabs.includes(closedPath)) {
+    stopRepoWatcher(closedPath);
+  }
+
+  if (tabState.openTabs.length === 0) {
+    tabState.activeIndex = -1;
+    currentRepoPath = null;
+  } else {
+    tabState.activeIndex = Math.min(index, tabState.openTabs.length - 1);
+    currentRepoPath = tabState.openTabs[tabState.activeIndex];
+    ensureRepoWatcher(currentRepoPath);
+  }
+  saveSession();
+  emitTabState();
+}
+
+function emitTabState() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('tabs:changed', {
+      openTabs: tabState.openTabs,
+      activeIndex: tabState.activeIndex,
+    });
+  }
+}
 
 function emitCurrentBranch(repoPath: string) {
   try {
     const headContent = readFileSync(path.join(repoPath, '.git', 'HEAD'), 'utf-8').trim();
     const match = headContent.match(/^ref: refs\/heads\/(.+)$/);
-    const branch = match ? match[1] : null; // null = detached HEAD
+    const branch = match ? match[1] : null;
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('git:branch-changed', branch);
     }
   } catch {}
 }
 
-function startRepoWatcher(repoPath: string) {
-  stopRepoWatcher();
+function ensureRepoWatcher(repoPath: string) {
+  if (repoWatchers.has(repoPath)) return;
 
   const notifyChanged = (() => {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
+        // Only emit file-changed if this repo is the active tab
+        if (currentRepoPath === repoPath && mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('repo:file-changed');
         }
       }, 300);
     };
   })();
 
-  // Emit the current branch from .git/HEAD immediately on watch start
   emitCurrentBranch(repoPath);
 
-  // File system watcher for immediate detection
+  let fsWatcher: FSWatcher | null = null;
   try {
-    repoWatcher = watch(repoPath, { recursive: true }, (_eventType, filename) => {
+    fsWatcher = watch(repoPath, { recursive: true }, (_eventType, filename) => {
       if (!filename) return;
       const normalized = filename.replace(/\\/g, '/');
       if (normalized.startsWith('.git/') || normalized.startsWith('.git\\')) {
-        // Allow through: ref changes, HEAD, packed-refs, index, merge/rebase state
         const isGitEvent =
           normalized.startsWith('.git/refs/') ||
           normalized === '.git/HEAD' ||
@@ -211,53 +291,61 @@ function startRepoWatcher(repoPath: string) {
           normalized === '.git/REBASE_HEAD' ||
           normalized === '.git/CHERRY_PICK_HEAD';
         if (!isGitEvent) return;
-        // Instantly emit branch name when HEAD changes
-        if (normalized === '.git/HEAD') {
+        if (normalized === '.git/HEAD' && currentRepoPath === repoPath) {
           emitCurrentBranch(repoPath);
         }
       }
       notifyChanged();
     });
-  } catch {
-    // Watching may fail on some platforms/filesystems
-  }
+  } catch {}
 
-  // Polling fallback: check HEAD + branches every 2s for changes fs.watch may miss
-  lastKnownHead = null;
-  lastKnownBranches = null;
+  let lastHead: string | null = null;
+  let lastBranches: string | null = null;
   try {
-    lastKnownHead = execSync('git rev-parse HEAD', { cwd: repoPath, encoding: 'utf-8', timeout: 5000 }).trim();
+    lastHead = execSync('git rev-parse HEAD', { cwd: repoPath, encoding: 'utf-8', timeout: 5000 }).trim();
   } catch {}
   try {
-    lastKnownBranches = execSync('git for-each-ref --format="%(refname:short) %(objectname:short)" refs/heads/', { cwd: repoPath, encoding: 'utf-8', timeout: 5000 }).trim();
+    lastBranches = execSync('git for-each-ref --format="%(refname:short) %(objectname:short)" refs/heads/', { cwd: repoPath, encoding: 'utf-8', timeout: 5000 }).trim();
   } catch {}
-  pollTimer = setInterval(() => {
+
+  const timer = setInterval(() => {
     try {
       let changed = false;
+      const entry = repoWatchers.get(repoPath);
+      if (!entry) return;
+
       const head = execSync('git rev-parse HEAD', { cwd: repoPath, encoding: 'utf-8', timeout: 5000 }).trim();
-      if (lastKnownHead !== null && head !== lastKnownHead) changed = true;
-      lastKnownHead = head;
+      if (entry.lastKnownHead !== null && head !== entry.lastKnownHead) changed = true;
+      entry.lastKnownHead = head;
 
       const branches = execSync('git for-each-ref --format="%(refname:short) %(objectname:short)" refs/heads/', { cwd: repoPath, encoding: 'utf-8', timeout: 5000 }).trim();
-      if (lastKnownBranches !== null && branches !== lastKnownBranches) changed = true;
-      lastKnownBranches = branches;
+      if (entry.lastKnownBranches !== null && branches !== entry.lastKnownBranches) changed = true;
+      entry.lastKnownBranches = branches;
 
       if (changed) notifyChanged();
     } catch {}
   }, 2000);
+
+  repoWatchers.set(repoPath, {
+    watcher: fsWatcher,
+    pollTimer: timer,
+    lastKnownHead: lastHead,
+    lastKnownBranches: lastBranches,
+  });
 }
 
-function stopRepoWatcher() {
-  if (repoWatcher) {
-    repoWatcher.close();
-    repoWatcher = null;
+function stopRepoWatcher(repoPath: string) {
+  const entry = repoWatchers.get(repoPath);
+  if (!entry) return;
+  if (entry.watcher) entry.watcher.close();
+  if (entry.pollTimer) clearInterval(entry.pollTimer);
+  repoWatchers.delete(repoPath);
+}
+
+function stopAllRepoWatchers() {
+  for (const rp of repoWatchers.keys()) {
+    stopRepoWatcher(rp);
   }
-  if (pollTimer) {
-    clearInterval(pollTimer);
-    pollTimer = null;
-  }
-  lastKnownHead = null;
-  lastKnownBranches = null;
 }
 
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
@@ -302,7 +390,7 @@ ipcMain.handle('git:open-repo', async () => {
     defaultPath: jockHome,
   });
   if (!result.canceled && result.filePaths.length > 0) {
-    setCurrentRepo(result.filePaths[0]);
+    activateTab(result.filePaths[0]);
     return currentRepoPath;
   }
   return null;
@@ -319,7 +407,7 @@ ipcMain.handle('git:create-repo', async () => {
   if (!result.canceled && result.filePaths.length > 0) {
     const dir = result.filePaths[0];
     execSync('git init', { cwd: dir });
-    setCurrentRepo(dir);
+    activateTab(dir);
     return currentRepoPath;
   }
   return null;
@@ -338,7 +426,7 @@ ipcMain.handle('git:clone-repo', async (_event, url: string) => {
     execSync(`git clone ${url}`, { cwd: dest, encoding: 'utf-8', timeout: 120000 });
     const repoName = url.replace(/\.git$/, '').split('/').pop()!;
     const clonedPath = path.join(dest, repoName);
-    setCurrentRepo(clonedPath);
+    activateTab(clonedPath);
     return currentRepoPath;
   }
   return null;
@@ -553,8 +641,53 @@ ipcMain.handle('git:get-repo-history', () => {
 });
 
 ipcMain.handle('git:switch-repo', (_event, repoPath: string) => {
-  setCurrentRepo(repoPath);
+  activateTab(repoPath);
   return currentRepoPath;
+});
+
+// --- Tab Management IPC ---
+
+ipcMain.handle('tabs:get-state', () => {
+  return { openTabs: tabState.openTabs, activeIndex: tabState.activeIndex };
+});
+
+ipcMain.handle('tabs:open', (_event, repoPath: string) => {
+  activateTab(repoPath);
+  return { openTabs: tabState.openTabs, activeIndex: tabState.activeIndex };
+});
+
+ipcMain.handle('tabs:close', (_event, index: number) => {
+  closeTab(index);
+  return { openTabs: tabState.openTabs, activeIndex: tabState.activeIndex, repoPath: currentRepoPath };
+});
+
+ipcMain.handle('tabs:switch', (_event, index: number) => {
+  if (index >= 0 && index < tabState.openTabs.length) {
+    tabState.activeIndex = index;
+    const rp = tabState.openTabs[index];
+    setCurrentRepo(rp);
+    saveSession();
+    emitTabState();
+  }
+  return { openTabs: tabState.openTabs, activeIndex: tabState.activeIndex, repoPath: currentRepoPath };
+});
+
+ipcMain.handle('tabs:reorder', (_event, fromIndex: number, toIndex: number) => {
+  if (fromIndex >= 0 && fromIndex < tabState.openTabs.length && toIndex >= 0 && toIndex < tabState.openTabs.length) {
+    const [moved] = tabState.openTabs.splice(fromIndex, 1);
+    tabState.openTabs.splice(toIndex, 0, moved);
+    // Adjust activeIndex to follow the active tab
+    if (tabState.activeIndex === fromIndex) {
+      tabState.activeIndex = toIndex;
+    } else if (fromIndex < tabState.activeIndex && toIndex >= tabState.activeIndex) {
+      tabState.activeIndex--;
+    } else if (fromIndex > tabState.activeIndex && toIndex <= tabState.activeIndex) {
+      tabState.activeIndex++;
+    }
+    saveSession();
+    emitTabState();
+  }
+  return { openTabs: tabState.openTabs, activeIndex: tabState.activeIndex };
 });
 
 ipcMain.handle('git:has-remote', () => {
@@ -1092,7 +1225,8 @@ app.on('activate', () => {
 });
 
 app.on('before-quit', () => {
-  stopRepoWatcher();
+  saveSession();
+  stopAllRepoWatchers();
   killAllPtys();
   stopSidecar();
 });
@@ -1122,6 +1256,21 @@ async function startBackendWithRetry(retries = 3): Promise<void> {
 
 app.whenReady().then(async () => {
   await startBackendWithRetry();
+
+  // Restore session tabs
+  const savedSession = getSession();
+  if (savedSession.openTabs.length > 0) {
+    tabState.openTabs = savedSession.openTabs;
+    tabState.activeIndex = Math.min(savedSession.activeIndex, savedSession.openTabs.length - 1);
+    if (tabState.activeIndex < 0) tabState.activeIndex = 0;
+    currentRepoPath = tabState.openTabs[tabState.activeIndex];
+    // Start watchers for all open tabs
+    for (const rp of tabState.openTabs) {
+      ensureRepoWatcher(rp);
+    }
+    addToRepoHistory(currentRepoPath);
+  }
+
   createWindow();
 
   if (backendError && mainWindow && !mainWindow.isDestroyed()) {

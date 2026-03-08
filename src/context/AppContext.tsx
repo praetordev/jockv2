@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { Commit, FileChange, CommitFilters } from '../types';
-import { useCommits, useBranches, useCommitDetails, useOpenRepo, useSourceControl, usePush, useBranchManagement, useBlame, useMergeConflicts, useStashes, useRemotes, useCherryPickRevert, useTags, useRebase, useReflog } from '../hooks/useGitData';
+import { useCommits, useBranches, useCommitDetails, useOpenRepo, useSourceControl, usePush, useBranchManagement, useBlame, useMergeConflicts, useStashes, useRemotes, useCherryPickRevert, useTags, useRebase, useReflog, type TabsState } from '../hooks/useGitData';
 import { useTasks } from '../hooks/useTaskData';
 import { useEditor } from '../hooks/useEditor';
 import { useFileTree } from '../hooks/useFileTree';
@@ -24,6 +24,11 @@ interface AppContextValue {
   cloneRepo: (url: string) => Promise<string | null>;
   switchRepo: (path: string) => void;
   checkRemote: () => void;
+
+  // Tabs
+  tabs: TabsState;
+  switchTab: (index: number) => void;
+  closeTab: (index: number) => void;
 
   // Commits
   commits: Commit[];
@@ -172,7 +177,7 @@ export function useAppContext() {
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const { repoPath, repoHistory, hasRemote, openRepo, createRepo, cloneRepo, switchRepo, checkRemote } = useOpenRepo();
+  const { repoPath, repoHistory, hasRemote, openRepo, createRepo, cloneRepo, switchRepo, checkRemote, tabs, switchTab, closeTab } = useOpenRepo();
   const { settings, updateSetting, updateKeybinding } = useSettings();
 
   // Apply theme
@@ -381,6 +386,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const value: AppContextValue = {
     repoPath, repoHistory, hasRemote, openRepo, createRepo, cloneRepo, switchRepo, checkRemote,
+    tabs, switchTab, closeTab,
     commits, filteredCommits, selectedCommit, setSelectedCommit, refreshCommits, commitFilters,
     commitSearch, setCommitSearch, graphWidth, animatedCommitHashes, triggerGraphRefresh,
     branches, refreshBranches, mainBranchWarning, currentBranchName,

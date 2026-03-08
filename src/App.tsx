@@ -18,7 +18,7 @@ function AppShell() {
     repoPath, hasRemote, backendError,
     isSidebarOpen, mainView, setMainView,
     pushing, pushResult, doPush, openRepo,
-    refreshAll,
+    refreshAll, tabs, switchTab, closeTab,
     // Modals
     showCreateBranch, setShowCreateBranch,
     showMergeDialog, setShowMergeDialog,
@@ -95,6 +95,10 @@ function AppShell() {
           onPush={() => doPush(undefined, undefined, false, !hasRemote)}
           onOpenRepo={openRepo}
           onRefresh={refreshAll}
+          tabs={tabs.openTabs.map(p => ({ path: p, name: p.split('/').pop() || p }))}
+          activeTabIndex={tabs.activeIndex}
+          onSwitchTab={switchTab}
+          onCloseTab={closeTab}
         />
       )}
 
